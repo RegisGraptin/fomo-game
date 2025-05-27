@@ -2,6 +2,7 @@ import React from 'react';
 import BiddingInterface from './BiddingInterface';
 
 import { FaCrown } from "react-icons/fa";
+import PoolCountdown from './PoolCountdown';
 
 interface Transaction {
   txHash: string;
@@ -43,8 +44,11 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-2xl mx-auto p-4">
+      
+      <PoolCountdown />
+
       {/* Winner Card */}
-      <div className="bg-white rounded-xl p-6 shadow-lg mb-8">
+      <div className="bg-white rounded-xl p-6 shadow-lg mb-8 mt-3">
         <h2 className="flex justify-align items-center text-gray-500 text-sm font-semibold mb-2">
             <FaCrown />
             <span className="ml-2">Current Winner</span>
@@ -58,7 +62,7 @@ export default function Dashboard() {
 
       {/* Recent Transactions */}
       <div className="space-y-4 mb-8">
-        <h2 className="text-xl font-bold text-gray-800 mb-4">Recent Bids</h2>
+        <h2 className="text-xl font-bold text-gray-200 mb-4">Recent Bids</h2>
         {transactions.map((tx) => (
           <div
             key={tx.txHash}
@@ -80,9 +84,10 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+      
 
-        {/* TODO: Need another input to buy key - maybe have a button on the side to buy 1 key or 10 keys */}
-        <BiddingInterface />
+      {/* TODO: Need another input to buy key - maybe have a button on the side to buy 1 key or 10 keys */}
+      <BiddingInterface />
 
     </div>
   );
