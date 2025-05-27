@@ -1,5 +1,6 @@
 onlyBuiltDependencies:
   - '@tailwindcss/oxide'
+  - bigint-buffer
   - bufferutil
   - keccak
   - sharp

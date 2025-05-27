@@ -1,27 +1,42 @@
 "use client";
 
+import { useLastPoolTime } from '@/hook/fomo';
+import { countDownValue } from '@/utils/time';
 import React, { useState, useEffect } from 'react';
 
 export default function PoolCountdown() {
+
+
+  // FIXME: Fetch on chain event data - 
+  const { data: lastPoolTime } = useLastPoolTime();
+
+
   const [timeLeft, setTimeLeft] = useState(30 * 60); // 30 minutes in seconds
   const [showPool, setShowPool] = useState(false);
   const [poolAmount] = useState(42.2); // Mock ETH amount
 
   // Countdown timer
   useEffect(() => {
-    if (timeLeft <= 0) {
-      setShowPool(true);
-      return;
+
+    if (!lastPoolTime) return;
+    const seconds = countDownValue(lastPoolTime as bigint);
+
+    if (seconds < 0) {
+        setShowPool(true);
+        return;
     }
+
+    setTimeLeft(seconds);
 
     const timer = setInterval(() => {
       setTimeLeft((prev) => prev - 1);
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeLeft]);
+  }, [timeLeft, lastPoolTime]);
 
   // Format time display
+  // TODO:
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -78,7 +93,7 @@ export default function PoolCountdown() {
         {!showPool && (
           <div className="text-center animate-pulse-slow">
             <p className="text-sm opacity-80">
-              Will you be the one to claim the hidden treasure? 
+              Will you be the one to claim the pool prize? 
               <span className="inline-block ml-2">🤑</span>
             </p>
             <div className="flex justify-center mt-2 space-x-1">
