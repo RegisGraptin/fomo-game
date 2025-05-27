@@ -17,12 +17,15 @@ contract Fomo is SepoliaZamaFHEVMConfig, ConfidentialWETH {
     ConfidentialERC20 erc20;
 
     uint64 public constant UNIT_KEY_PRICE = 1e14; // 0.0001 ETH
+    uint256 public constant UNIT_TIME_INCREASE = 30 minutes;
 
-    euint64 poolPrize;
+    euint64 hiddenPoolPrize;
+
+    euint256 countdownTimer;
 
     // Set the pool prize - The amount will be revealed only after a set of time
-    uint256 public poolPrize;
-    uint256 public lastPoolPrizeReveal;
+    uint256 public lastPoolPrize;
+    uint256 public lastPoolPrizeTime;
     
 
     // Store the current winner and the amount of bids from users
@@ -37,6 +40,9 @@ contract Fomo is SepoliaZamaFHEVMConfig, ConfidentialWETH {
         poolPrize = 0;
         lastPoolPrizeReveal = 0;
         winner = address(0);
+
+        // Set the end of the game
+        countdownTimer = TFHE.asEuint256(block.timestamp + 1 days);
     }
 
 
@@ -58,10 +64,47 @@ contract Fomo is SepoliaZamaFHEVMConfig, ConfidentialWETH {
         euint64 newBalance = TFHE.sub(_balances[msg.sender], transferValue);
         _balances[msg.sender] = newBalance;
 
-        // Update winner position 
+        
+        // Get the number of keys bought
+        euint256 keyAmount = TFHE.select(isTransferable, eKeyAmount, TFHE.asEuint256(0));
+
+        // Update user position
+        bids[msg.sender] = TFHE.add(
+            bids[msg.sender], 
+            keyAmount
+        );
+
+        // FIXME: How to get the winner? Call the gateway to get the winner? 
+
         // FIXME: If we compared hidden data, we cannot use the `winner` address directly
         // TODO:: Should we use gateway mechanism too?
 
+
+        // Update the time based on the number of keys bought
+        euint256 eTimeIncrease = TFHE.asEuint256(UNIT_TIME_INCREASE);
+        countdownTimer = TFHE.add(
+            countdownTimer, 
+            TFHE.mul(eTimeIncrease, keyAmount)
+        );
+
+    }
+
+    // - When valid (time > last time) => reveal the pool prize & update time
+    // - When invalid (time < last time) => need to wait
+    // - When pool finised => reveal the time and lock the pool
+    function requestRevealPrizePool() external {
+        
+        // FIXME: add time check
+
+        uint256[] memory cts = new uint256[](1);
+        cts[0] = Gateway.toUint64(lastPoolPrize);
+        Gateway.requestDecryption(
+            cts, 
+            this.revealPrizePool.selector, 
+            0,
+            block.timestamp + 100, 
+            false
+        );
     }
 
 
@@ -69,9 +112,13 @@ contract Fomo is SepoliaZamaFHEVMConfig, ConfidentialWETH {
     /// Gateway callback
     ///
 
-    function executeRound(uint256 /* requestId */, uint256 _lastPoolPrize) external onlyGateway {
-        lastPoolPrizeReveal = _lastPoolPrize
-
+    function revealPrizePool(uint256 /* requestId */, uint256 _lastPoolPrize) external onlyGateway {
+        
+        // Check if the value is valid or not
+        // == 0 => end of the game?
+        
+        lastPoolPrize = _lastPoolPrize
+        lastPoolPrizeTime = block.timestamp;
     }
 
     
