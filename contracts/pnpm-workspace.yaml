@@ -1,0 +1,5 @@
+onlyBuiltDependencies:
+  - bigint-buffer
+  - keccak
+  - secp256k1
+  - sqlite3
