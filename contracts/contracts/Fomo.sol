@@ -39,6 +39,7 @@ contract Fomo is SepoliaZamaFHEVMConfig, SepoliaZamaGatewayConfig, GatewayCaller
 
 
     error GameIsFinished();
+    error PendingTimeError();
 
     /// TODO: wrap direclty ETH
     constructor(
@@ -51,7 +52,7 @@ contract Fomo is SepoliaZamaFHEVMConfig, SepoliaZamaGatewayConfig, GatewayCaller
 
         // FIXME: removed them?
         lastPoolPrize = 0;
-        lastPoolPrizeTime = 0;
+        lastPoolPrizeTime = block.timestamp;
     }
 
 
@@ -130,8 +131,11 @@ contract Fomo is SepoliaZamaFHEVMConfig, SepoliaZamaGatewayConfig, GatewayCaller
     // - When invalid (time < last time) => need to wait
     // - When pool finised => reveal the time and lock the pool
     function requestRevealPrizePool() external {
-        
-        // FIXME: add time check
+
+        // FIXME: Need to see if we have to reveal it when the game is finished
+
+        // Check if we need to wait for revealing the prize pool
+        if (block.timestamp <= lastPoolPrizeTime + UNIT_TIME_INCREASE ) revert PendingTimeError();
 
         uint256[] memory cts = new uint256[](1);
         cts[0] = Gateway.toUint256(hiddenPoolPrize);
@@ -149,11 +153,8 @@ contract Fomo is SepoliaZamaFHEVMConfig, SepoliaZamaGatewayConfig, GatewayCaller
     /// Gateway callback
     ///
 
+    /// @notice Callback function to reveal the prize pool
     function revealPrizePool(uint256 /* requestId */, uint256 _lastPoolPrize) external onlyGateway {
-        
-        // Check if the value is valid or not
-        // == 0 => end of the game?
-        
         lastPoolPrize = _lastPoolPrize;
         lastPoolPrizeTime = block.timestamp;
     }
