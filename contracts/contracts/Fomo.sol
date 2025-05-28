@@ -50,8 +50,8 @@ contract Fomo is SepoliaZamaFHEVMConfig, SepoliaZamaGatewayConfig, GatewayCaller
         lastPoolPrizeTime = block.timestamp + 30 minutes; // Next time we can see the pool prize
     }
 
-    function onChainRandomness() external {}
-
+    // FIXME: add constraint on the number of tokens bought
+    // -> Still have a probability of failling
     function bid(einput eRequestedKeyAmount, bytes calldata inputProof) external {
         if (isGameFinished) revert GameIsFinished();
 
@@ -90,17 +90,25 @@ contract Fomo is SepoliaZamaFHEVMConfig, SepoliaZamaGatewayConfig, GatewayCaller
         TFHE.allowThis(_newUserBids);
         TFHE.allow(_newUserBids, msg.sender);
 
-        // Update the time based on the number of keys bought
+        // Based on the number of token bought, increase randomly the time
+        euint64 rand = TFHE.randEuint64(60);
+        ebool isSelected = TFHE.gt(keyAmount, rand);
         euint256 eTimeIncrease = TFHE.asEuint256(UNIT_TIME_INCREASE);
-        countdownTimer = TFHE.add(countdownTimer, TFHE.mul(eTimeIncrease, keyAmount));
+
+        // Randomly increase the time
+        countdownTimer = TFHE.select(
+            isSelected,
+            TFHE.add(countdownTimer, TFHE.mul(eTimeIncrease, rand)),
+            TFHE.asEuint256(0)
+        );
         TFHE.allowThis(countdownTimer);
 
         // Update winner position
-        ebool isNewWinner = TFHE.gt(bids[msg.sender], bids[winner]);
-        TFHE.allowThis(isNewWinner);
+        // ebool isNewWinner = TFHE.gt(bids[msg.sender], bids[winner]);
+        TFHE.allowThis(isSelected);
 
         uint256[] memory cts = new uint256[](1);
-        cts[0] = Gateway.toUint256(isNewWinner);
+        cts[0] = Gateway.toUint256(isSelected);
         uint256 requestId = Gateway.requestDecryption(
             cts,
             this.revealNewWinner.selector,

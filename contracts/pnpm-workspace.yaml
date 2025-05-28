@@ -1,5 +1,9 @@
 onlyBuiltDependencies:
+  - bcrypto
   - bigint-buffer
+  - bufferutil
+  - eccrypto
   - keccak
   - secp256k1
   - sqlite3
+  - utf-8-validate

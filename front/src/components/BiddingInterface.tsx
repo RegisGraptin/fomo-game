@@ -21,6 +21,7 @@ export default function BiddingInterface() {
     const instance = getFHEInstance();
 
     if (!instance) {
+      console.log(instance);
       console.log("Instance loading...");
       return;
     }
