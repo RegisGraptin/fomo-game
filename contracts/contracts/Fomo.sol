@@ -37,8 +37,10 @@ contract Fomo is SepoliaZamaFHEVMConfig, SepoliaZamaGatewayConfig, GatewayCaller
     error PendingTimeError();
 
     constructor(uint256 maxDecryptionDelay_) ConfidentialWETH(maxDecryptionDelay_) {
+        uint256 initialPoolPrize = 10 * 1e18;
+
         // Initialize the game
-        hiddenPoolPrize = TFHE.asEuint64(10);
+        hiddenPoolPrize = TFHE.asEuint64(initialPoolPrize);
         TFHE.allowThis(hiddenPoolPrize);
 
         countdownTimer = TFHE.asEuint256(block.timestamp + 1 days);
@@ -46,12 +48,13 @@ contract Fomo is SepoliaZamaFHEVMConfig, SepoliaZamaGatewayConfig, GatewayCaller
 
         winner = address(0);
 
-        lastPoolPrize = 10 * 1e18; // Pool prize of 10 ETH - demo purpose
+        lastPoolPrize = initialPoolPrize; // Pool prize of 10 ETH - demo purpose
         lastPoolPrizeTime = block.timestamp + 30 minutes; // Next time we can see the pool prize
     }
 
-    // FIXME: add constraint on the number of tokens bought
-    // -> Still have a probability of failling
+    /// Contraint on the frontend to limit the number of tokens
+    /// FIXME: Need to add a limit in the smart contract!
+    /// @dev Should still have a probability of failling
     function bid(einput eRequestedKeyAmount, bytes calldata inputProof) external {
         if (isGameFinished) revert GameIsFinished();
 

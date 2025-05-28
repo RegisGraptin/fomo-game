@@ -58,7 +58,7 @@ export default function Dashboard() {
           <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-mono">
             {winnerAddress === "0x0000000000000000000000000000000000000000"
               ? "No winner"
-              : winnerAddress}
+              : (winnerAddress as string)}
           </div>
         </div>
       </div>
@@ -89,9 +89,10 @@ export default function Dashboard() {
         ))}
       </div> */}
 
-      {/* TODO: Need another input to buy key - maybe have a button on the side to buy 1 key or 10 keys */}
+      {/* Bidding system */}
       <BiddingInterface />
 
+      {/* Helper to wrap free eth token */}
       <WrapToken />
     </div>
   );

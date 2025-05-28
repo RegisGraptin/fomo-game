@@ -1,9 +1,9 @@
 "use client";
 
-import { getFHEInstance } from "@/lib/fhe";
+import { createFHEInstance, getFHEInstance } from "@/lib/fhe";
 import { useState } from "react";
 
-import { getAddress, toHex } from "viem";
+import { getAddress, parseUnits, toHex } from "viem";
 import { useAccount, useWriteContract } from "wagmi";
 
 import Fomo from "@/abi/Fomo.json";
@@ -17,6 +17,7 @@ export default function BiddingInterface() {
 
   const buyKeys = async () => {
     // Get the FHE instance
+
     console.log("Retrieve FHE Instance");
     const instance = getFHEInstance();
 
@@ -44,6 +45,11 @@ export default function BiddingInterface() {
         toHex(encryptedInputs.inputProof),
       ],
     });
+  };
+
+  const computePrice = () => {
+    const amount = quantity / 10000;
+    return amount.toString() + " WETH";
   };
 
   return (
@@ -89,7 +95,7 @@ export default function BiddingInterface() {
         className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-4 px-6 rounded-xl transition-all transform hover:scale-105"
         onClick={buyKeys}
       >
-        Buy tokens
+        Buy tokens - {computePrice()}
       </button>
     </div>
   );
