@@ -10,7 +10,8 @@ export const createFHEInstance = async () => {
     aclContractAddress: "0xFee8407e2f5e3Ee68ad77cAE98c434e637f516e5",
     // chainId: sepolia.id,
     gatewayUrl: "https://gateway.sepolia.zama.ai",
-    networkUrl: "https://eth-sepolia.public.blastapi.io",
+    // networkUrl: "https://eth-sepolia.public.blastapi.io",
+    networkUrl: process.env.NEXT_PUBLIC_CONTRACT!,
   });
   console.log(instance);
   console.log("FHE Instance ready!");

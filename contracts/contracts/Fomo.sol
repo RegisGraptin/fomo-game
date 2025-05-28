@@ -15,7 +15,6 @@ import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/I
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract Fomo is SepoliaZamaFHEVMConfig, SepoliaZamaGatewayConfig, GatewayCaller, ConfidentialWETH {
-
     uint64 public constant UNIT_KEY_PRICE = 1e14; // 0.0001 ETH
     uint256 public constant UNIT_TIME_INCREASE = 30 minutes;
 
@@ -27,49 +26,43 @@ contract Fomo is SepoliaZamaFHEVMConfig, SepoliaZamaGatewayConfig, GatewayCaller
     // Set the pool prize - The amount will be revealed only after a set of time
     uint256 public lastPoolPrize;
     uint256 public lastPoolPrizeTime;
-    
 
     // Store the current winner and the amount of bids from users
     address public winner;
     mapping(address => euint64) public bids;
-    
-
-
     mapping(uint256 _requestId => address _user) public requestedUsers;
 
-
+    error GameIsRunning();
     error GameIsFinished();
     error PendingTimeError();
 
-    /// TODO: wrap direclty ETH
-    constructor(
-        uint256 maxDecryptionDelay_
-    ) ConfidentialWETH(maxDecryptionDelay_) {
+    constructor(uint256 maxDecryptionDelay_) ConfidentialWETH(maxDecryptionDelay_) {
         // Initialize the game
-        hiddenPoolPrize = TFHE.asEuint64(0);
+        hiddenPoolPrize = TFHE.asEuint64(10);
+        TFHE.allowThis(hiddenPoolPrize);
+
         countdownTimer = TFHE.asEuint256(block.timestamp + 1 days);
+        TFHE.allowThis(countdownTimer);
+
         winner = address(0);
 
-        // FIXME: removed them?
-        lastPoolPrize = 0;
-        lastPoolPrizeTime = block.timestamp;
+        lastPoolPrize = 10 * 1e18; // Pool prize of 10 ETH - demo purpose
+        lastPoolPrizeTime = block.timestamp + 30 minutes; // Next time we can see the pool prize
     }
 
+    function onChainRandomness() external {}
 
-    function bid(
-        einput eRequestedKeyAmount, 
-        bytes calldata inputProof
-    ) external {
+    function bid(einput eRequestedKeyAmount, bytes calldata inputProof) external {
         if (isGameFinished) revert GameIsFinished();
-        
+
         // Check if the countdown timer is still valid
         euint256 blockTimestamp = TFHE.asEuint256(block.timestamp);
         ebool isValidTime = TFHE.le(blockTimestamp, countdownTimer);
-        
+
         // Compute the price the user needs to pay
         euint64 eKeyAmount = TFHE.select(
-            isValidTime, 
-            TFHE.asEuint64(eRequestedKeyAmount, inputProof), 
+            isValidTime,
+            TFHE.asEuint64(eRequestedKeyAmount, inputProof),
             TFHE.asEuint64(0)
         );
 
@@ -80,91 +73,117 @@ contract Fomo is SepoliaZamaFHEVMConfig, SepoliaZamaGatewayConfig, GatewayCaller
         ebool isTransferable = TFHE.le(eTotalPrice, _balances[msg.sender]);
         euint64 transferValue = TFHE.select(isTransferable, eTotalPrice, TFHE.asEuint64(0));
 
-        // Update the user/pool balance 
+        // Update the user/pool balance
         hiddenPoolPrize = TFHE.add(hiddenPoolPrize, transferValue);
         euint64 newBalance = TFHE.sub(_balances[msg.sender], transferValue);
         _balances[msg.sender] = newBalance;
+        TFHE.allowThis(hiddenPoolPrize);
+        TFHE.allowThis(newBalance);
+        TFHE.allow(newBalance, msg.sender);
 
-        
-        // Get the number of keys bought
-        euint64 keyAmount = TFHE.select(
-            isTransferable, eKeyAmount, TFHE.asEuint64(0));
+        // Get the number of tokens bought
+        euint64 keyAmount = TFHE.select(isTransferable, eKeyAmount, TFHE.asEuint64(0));
 
         // Update user position
-        bids[msg.sender] = TFHE.add(
-            bids[msg.sender], 
-            keyAmount
-        );
+        euint64 _newUserBids = TFHE.add(bids[msg.sender], keyAmount);
+        bids[msg.sender] = _newUserBids;
+        TFHE.allowThis(_newUserBids);
+        TFHE.allow(_newUserBids, msg.sender);
 
         // Update the time based on the number of keys bought
         euint256 eTimeIncrease = TFHE.asEuint256(UNIT_TIME_INCREASE);
-        countdownTimer = TFHE.add(
-            countdownTimer, 
-            TFHE.mul(eTimeIncrease, keyAmount)
-        );
+        countdownTimer = TFHE.add(countdownTimer, TFHE.mul(eTimeIncrease, keyAmount));
+        TFHE.allowThis(countdownTimer);
 
         // Update winner position
         ebool isNewWinner = TFHE.gt(bids[msg.sender], bids[winner]);
-
+        TFHE.allowThis(isNewWinner);
 
         uint256[] memory cts = new uint256[](1);
         cts[0] = Gateway.toUint256(isNewWinner);
         uint256 requestId = Gateway.requestDecryption(
-            cts, 
-            this.revealNewWinner.selector, 
+            cts,
+            this.revealNewWinner.selector,
             0,
-            block.timestamp + 100, 
+            block.timestamp + 100,
             false
         );
         requestedUsers[requestId] = msg.sender;
-
-
-        // FIXME: How to get the winner? Call the gateway to get the winner? 
-
-        // FIXME: If we compared hidden data, we cannot use the `winner` address directly
-        // TODO:: Should we use gateway mechanism too?
-
-
     }
+
+    //
+    // Need to think when we should reveal the end time of the pool
+    //
 
     // - When valid (time > last time) => reveal the pool prize & update time
     // - When invalid (time < last time) => need to wait
     // - When pool finised => reveal the time and lock the pool
+
+    // FIXME: Need to see if we have to reveal it when the game is finished
     function requestRevealPrizePool() external {
-
-        // FIXME: Need to see if we have to reveal it when the game is finished
-
         // Check if we need to wait for revealing the prize pool
-        if (block.timestamp <= lastPoolPrizeTime + UNIT_TIME_INCREASE ) revert PendingTimeError();
+        if (block.timestamp <= lastPoolPrizeTime + UNIT_TIME_INCREASE) revert PendingTimeError();
 
-        uint256[] memory cts = new uint256[](1);
+        euint256 _now = TFHE.asEuint256(block.timestamp);
+
+        ebool isFinished = TFHE.gt(countdownTimer, _now);
+        TFHE.allowThis(isFinished);
+
+        uint256[] memory cts = new uint256[](2);
         cts[0] = Gateway.toUint256(hiddenPoolPrize);
-        Gateway.requestDecryption(
-            cts, 
-            this.revealPrizePool.selector, 
-            0,
-            block.timestamp + 100, 
-            false
-        );
+        cts[1] = Gateway.toUint256(isFinished);
+
+        // FIXME: Should we also reveal the remaining time here?
+
+        Gateway.requestDecryption(cts, this.revealPrizePool.selector, 0, block.timestamp + 100, false);
     }
 
+    function claim() external {
+        if (!isGameFinished) revert GameIsRunning();
+
+        // Transfer the pool prize to the user
+        euint64 newBalance = TFHE.add(_balances[msg.sender], hiddenPoolPrize);
+        _balances[msg.sender] = newBalance;
+        TFHE.allowThis(newBalance);
+        TFHE.allow(newBalance, msg.sender);
+
+        // Reset the pool prize - Or use a flag
+        hiddenPoolPrize = TFHE.asEuint64(0);
+    }
+
+    ///
+    /// Helper function
+    ///
+
+    /// @notice avoid to spend eth for wrapping - only for demo time
+    function fakeWrap(uint64 _amount) public virtual {
+        _unsafeMint(msg.sender, _amount);
+        emit Wrap(msg.sender, _amount);
+    }
 
     ///
     /// Gateway callback
     ///
 
     /// @notice Callback function to reveal the prize pool
-    function revealPrizePool(uint256 /* requestId */, uint256 _lastPoolPrize) external onlyGateway {
+    function revealPrizePool(
+        uint256 /* requestId */,
+        uint256 _lastPoolPrize,
+        uint256 _isGameFinished
+    ) external onlyGateway {
         lastPoolPrize = _lastPoolPrize;
         lastPoolPrizeTime = block.timestamp;
+
+        if (_isGameFinished > 0) {
+            isGameFinished = true;
+        }
     }
 
     function revealNewWinner(uint256 requestId, uint256 _isNewWinner) external onlyGateway {
-        if (_isNewWinner > 0) {  // Update the winner
+        if (_isNewWinner > 0) {
+            // Update the winner
             winner = msg.sender;
             delete requestedUsers[requestId];
         }
     }
-
-    
 }

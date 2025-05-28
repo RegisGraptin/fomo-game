@@ -14,20 +14,27 @@ export function useLastPoolTime() {
   });
 }
 
-// export function useAllowance(
-//   tokenAddress: Address | string | undefined,
-//   args: [`0x${string}`, `0x${string}`]
-// ) {
-//   return useReadContract({
-//     address: getAddress(tokenAddress!),
-//     abi: erc20Abi,
-//     functionName: "allowance",
-//     args,
-//     query: {
-//       enabled: !!tokenAddress, // Only enable when address exists
-//     },
-//   });
-// }
+export function useLastPoolPrize() {
+  return useReadContract({
+    address: getAddress(process.env.NEXT_PUBLIC_CONTRACT!),
+    abi: Fomo.abi,
+    functionName: "lastPoolPrize",
+    query: {
+      enabled: !!process.env.NEXT_PUBLIC_CONTRACT, // Only enable when address exists
+    },
+  });
+}
+
+export function useGetCurrentWinner() {
+  return useReadContract({
+    address: getAddress(process.env.NEXT_PUBLIC_CONTRACT!),
+    abi: Fomo.abi,
+    functionName: "winner",
+    query: {
+      enabled: !!process.env.NEXT_PUBLIC_CONTRACT, // Only enable when address exists
+    },
+  });
+}
 
 // export function useEncryptedBalance(
 //   tokenAddress: Address | string | undefined,

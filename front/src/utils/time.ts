@@ -1,9 +1,10 @@
-
-
 export function countDownValue(unixTimestamp: bigint | undefined): number {
   if (!unixTimestamp) return 0;
 
-  const target = new Date(Number(unixTimestamp) * 1000).getTime();
+  // Do not forget to add the next 30 minutes for the cooldown
+  const target = new Date(
+    Number(unixTimestamp) * 1000 + 30 * 60 * 1000
+  ).getTime();
   const now = Date.now();
   const diff = target - now;
 
